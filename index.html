@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>단어 게임 — 초성 · 자모 · 한붓</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendard-dynamic-subset.min.css" />
+<style>
+:root{
+  --canvas:#ffffff; --ink:#3a3a3e; --carbon:#090b11; --ash:#b5b0b0;
+  --apricot:#ffcf9e; --iris:#babfff; --fuchsia:#e3a2ef; --polar:#bfe0f7;
+  --font:'Instrument Sans','Pretendard',ui-sans-serif,system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:var(--font);background:var(--canvas);color:var(--ink);letter-spacing:-0.01em;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:920px;margin:0 auto;padding:48px 24px 90px;}
+
+.topline{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;}
+.wordmark{font-weight:500;font-size:12px;line-height:1.0;letter-spacing:-0.36px;text-transform:uppercase;}
+.session{display:flex;gap:8px;align-items:center;font-size:12px;letter-spacing:-0.36px;}
+.session .chip{border:1px solid var(--ink);padding:7px 12px;}
+.session .chip.hide{display:none;}
+
+.headline{font-weight:400;font-size:54px;line-height:1.0;letter-spacing:-1.62px;margin-bottom:18px;}
+@media(max-width:560px){.headline{font-size:40px;letter-spacing:-1.2px;}}
+.lede{font-weight:400;font-size:24px;line-height:1.5;letter-spacing:-0.24px;max-width:640px;}
+@media(max-width:560px){.lede{font-size:18px;}}
+.hr{height:1px;background:var(--ink);border:0;margin:36px 0;}
+.section-label{font-weight:500;font-size:12px;letter-spacing:-0.36px;text-transform:uppercase;margin-bottom:14px;}
+
+/* ── 버전 선택 ── */
+.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+@media(max-width:680px){.mode-grid{grid-template-columns:1fr;}}
+.mode-card{
+  text-align:left;font-family:var(--font);cursor:pointer;border-radius:0;
+  background:var(--canvas);border:1px solid var(--ink);padding:24px;
+  display:flex;flex-direction:column;gap:10px;transition:background .12s;
+}
+.mode-card:hover{background:#f3f1ee;}
+.mode-card:disabled{opacity:.45;cursor:not-allowed;}
+.mode-card .mc-tag{
+  align-self:flex-start;font-size:12px;letter-spacing:-0.36px;text-transform:uppercase;
+  font-weight:500;padding:6px 12px;border:1px solid var(--ink);
+}
+.mode-card.cho  .mc-tag{background:var(--apricot);}
+.mode-card.jamo .mc-tag{background:var(--iris);}
+.mode-card.han  .mc-tag{background:var(--polar);}
+.mode-card .mc-title{font-weight:400;font-size:48px;line-height:1;letter-spacing:-0.54px;}
+.mode-card .mc-ex{font-size:24px;letter-spacing:2px;color:var(--ink);}
+.mode-card .mc-desc{font-size:12px;letter-spacing:-0.36px;line-height:1.5;color:var(--ink);}
+
+.csv-zone{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px dashed var(--ink);padding:18px;}
+.csv-zone.drag{background:#f3f1ee;border-style:solid;}
+.loadmsg{font-size:12px;letter-spacing:-0.36px;color:var(--ink);}
+.csv-hint{margin-top:10px;font-size:12px;line-height:1.5;letter-spacing:-0.36px;color:var(--ink);}
+
+/* ── 게임 ── */
+.hidden{display:none !important;}
+.gstat{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;letter-spacing:-0.36px;margin-bottom:18px;}
+.gstat .type-tag{padding:6px 12px;border:1px solid var(--ink);font-weight:500;text-transform:uppercase;}
+.gstat .type-tag.cho{background:var(--apricot);}
+.gstat .type-tag.jamo{background:var(--iris);}
+.gstat .type-tag.han{background:var(--polar);}
+
+.qcard{border:1px solid var(--ink);padding:24px;margin-bottom:24px;}
+.qcard .ql{font-size:12px;letter-spacing:-0.36px;text-transform:uppercase;margin-bottom:10px;}
+.qtext{font-weight:400;font-size:24px;line-height:1.5;letter-spacing:-0.24px;word-break:keep-all;}
+
+.stage{margin-bottom:18px;}
+.cho-display{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;min-height:160px;border:1px solid var(--ink);padding:24px;}
+.cho-syl{font-weight:400;font-size:64px;line-height:1;letter-spacing:-0.04em;}
+@media(max-width:560px){.cho-syl{font-size:44px;}}
+
+.jamo-box{position:relative;width:100%;height:340px;border:1px solid var(--ink);overflow:hidden;}
+@media(max-width:560px){.jamo-box{height:300px;}}
+.jamo{position:absolute;display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:56px;padding:0 14px;background:var(--canvas);border:1px solid var(--apricot);border-radius:0;color:var(--ink);font-weight:400;font-size:30px;line-height:1;user-select:none;transition:top .6s cubic-bezier(.2,.8,.2,1),left .6s cubic-bezier(.2,.8,.2,1),opacity .5s ease,transform .5s ease;}
+.jamo.fly{opacity:0;transform:scale(.4);}
+.reveal-word{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:400;font-size:64px;letter-spacing:-0.04em;color:var(--ink);opacity:0;transform:scale(.9);transition:.4s cubic-bezier(.2,.8,.2,1);background:var(--canvas);}
+.reveal-word.show{opacity:1;transform:scale(1);}
+
+.han-grid{display:grid;grid-template-columns:repeat(5,minmax(0,64px));gap:5px;justify-content:center;padding:18px;border:1px solid var(--ink);}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--canvas);border:1px solid var(--ink);border-radius:0;cursor:pointer;font-weight:400;font-size:26px;user-select:none;transition:background .12s;}
+.cell:hover{background:#f3f1ee;}
+.cell.sel{background:var(--iris);}
+.cell.reveal{background:var(--apricot);}
+.cell.first-hint{background:var(--polar);}
+
+.ans-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin:18px 0 12px;}
+@media(max-width:560px){.ans-row{grid-template-columns:1fr;}}
+.ans-input{font-family:var(--font);font-size:24px;letter-spacing:-0.24px;text-align:center;background:var(--canvas);color:var(--ink);border:1px solid var(--ink);border-radius:0;padding:13px 16px;outline:none;width:100%;}
+.ans-input:focus{border-color:var(--carbon);box-shadow:inset 0 0 0 1px var(--carbon);}
+
+.hint-line{text-align:center;font-weight:400;font-size:28px;letter-spacing:6px;min-height:40px;margin:6px 0 14px;}
+.hint-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.hint-row .btn{flex:1;min-width:140px;font-size:14px;padding:11px 14px;}
+.msg{min-height:30px;text-align:center;font-size:16px;letter-spacing:-0.24px;color:var(--ink);}
+.msg.ok{color:var(--carbon);font-weight:500;}
+
+.btn{font-family:var(--font);font-weight:500;font-size:16px;letter-spacing:-0.24px;background:var(--canvas);color:var(--ink);border:1px solid var(--ink);border-radius:0;padding:12px 22px;cursor:pointer;}
+.btn:hover{background:var(--ink);color:#fff;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.lg{font-size:24px;letter-spacing:-0.24px;padding:16px 40px;}
+.btn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px;}
+
+.finish{text-align:center;padding:40px 0;}
+.finish .big{font-weight:400;font-size:54px;letter-spacing:-1.62px;margin-bottom:14px;}
+@media(max-width:560px){.finish .big{font-size:40px;letter-spacing:-1.2px;}}
+.finish .sub{font-size:24px;letter-spacing:-0.24px;margin-bottom:28px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topline">
+    <div class="wordmark">단어<br/>게임</div>
+    <div class="session">
+      <span class="chip" id="progressChip">초성 · 자모 · 한붓</span>
+      <span class="chip hide" id="timerChip">00:00</span>
+    </div>
+  </div>
+
+  <!-- ===== 버전 선택 ===== -->
+  <section id="home">
+    <h1 class="headline">문제를 불러오고 시작하세요</h1>
+    <p class="lede">CSV 문제 파일을 불러온 뒤, 세 가지 방식(초성·자모·한붓) 중 골라서 풀 수 있어요.</p>
+    <hr class="hr" />
+
+    <div class="section-label">문제 불러오기</div>
+    <div class="csv-zone" id="csvZone">
+      <input type="file" id="csvFile" accept=".csv,text/csv" hidden />
+      <button class="btn" id="csvBtn">CSV 파일 불러오기</button>
+      <button class="btn" id="sampleBtn">샘플로 체험</button>
+      <span class="loadmsg" id="loadMsg">CSV 파일을 불러오거나, 여기로 끌어다 놓으세요.</span>
+    </div>
+    <div class="csv-hint">CSV 형식 — <b>첫째 칸 = 문제(설명, 비워도 됨)</b>, <b>둘째 칸 = 정답</b>. 엑셀·구글시트에서 “CSV로 내보내기”로 만들면 됩니다. (1행 머리글은 자동으로 건너뜁니다.)</div>
+
+    <hr class="hr" />
+    <div class="section-label">버전 선택</div>
+    <div class="mode-grid">
+      <button class="mode-card cho" data-mode="choseong" disabled>
+        <span class="mc-tag">초성</span>
+        <span class="mc-title">초성</span>
+        <span class="mc-ex">ㅎ ㄱ → 학교</span>
+        <span class="mc-desc">초성만 보고 정답을 입력해요.</span>
+      </button>
+      <button class="mode-card jamo" data-mode="jamo" disabled>
+        <span class="mc-tag">자모</span>
+        <span class="mc-title">자모</span>
+        <span class="mc-ex">ㅎ ㅏ ㄱ ㄱ ㅛ</span>
+        <span class="mc-desc">흩어진 자음·모음을 보고 정답을 입력해요.</span>
+      </button>
+      <button class="mode-card han" data-mode="hanbut" disabled>
+        <span class="mc-tag">한붓</span>
+        <span class="mc-title">한붓</span>
+        <span class="mc-ex">글자판 잇기</span>
+        <span class="mc-desc">인접한 칸을 이어 단어를 완성해요.</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== 게임 ===== -->
+  <section id="game" class="hidden">
+    <div class="gstat">
+      <span id="counter">문제 1 / 1</span>
+      <span class="type-tag" id="typeTag">초성</span>
+    </div>
+    <div class="qcard" id="qcard">
+      <div class="ql">Question</div>
+      <div class="qtext" id="qtext"></div>
+    </div>
+    <div class="stage" id="stage"></div>
+    <div class="ans-row" id="ansRow">
+      <input type="text" class="ans-input" id="ansInput" placeholder="정답을 입력하세요" autocomplete="off" />
+      <button class="btn" id="submitBtn">확인</button>
+    </div>
+    <div class="hint-line" id="hintLine"></div>
+    <div class="hint-row" id="hintRow"></div>
+    <div class="msg" id="msg"></div>
+    <hr class="hr" />
+    <div class="btn-row"><button class="btn" id="homeBtn">버전 바꾸기</button></div>
+  </section>
+
+  <!-- ===== 종료 ===== -->
+  <section id="finish" class="hidden">
+    <div class="finish">
+      <div class="big">모두 맞혔습니다</div>
+      <div class="sub" id="finishSub"></div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn lg" id="againBtn">다시 하기</button>
+        <button class="btn" id="finishHomeBtn">버전 바꾸기</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ───────── 한글 자모 ───────── */
+const CHO=["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+const JUNG=["ㅏ","ㅐ","ㅑ","ㅒ","ㅓ","ㅔ","ㅕ","ㅖ","ㅗ","ㅘ","ㅙ","ㅚ","ㅛ","ㅜ","ㅝ","ㅞ","ㅟ","ㅠ","ㅡ","ㅢ","ㅣ"];
+const JONG=["","ㄱ","ㄲ","ㄳ","ㄴ","ㄵ","ㄶ","ㄷ","ㄹ","ㄺ","ㄻ","ㄼ","ㄽ","ㄾ","ㄿ","ㅀ","ㅁ","ㅂ","ㅄ","ㅅ","ㅆ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+function decompose(word){const out=[];for(const ch of word){const c=ch.charCodeAt(0)-44032;if(c>=0&&c<=11171){const cho=Math.floor(c/588),jung=Math.floor((c-cho*588)/28),jong=c%28;out.push(CHO[cho],JUNG[jung]);if(jong>0)out.push(JONG[jong]);}else if(ch.trim()!=="")out.push(ch);}return out;}
+function choseongOf(str){let r="";for(const ch of str){const c=ch.charCodeAt(0)-44032;if(c>=0&&c<=11171)r+=CHO[Math.floor(c/588)];else r+=ch;}return r;}
+function normalize(t){return String(t).trim().replace(/\s+/g,"").toLowerCase();}
+function shuffle(a){const x=a.slice();for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];}return x;}
+const $=id=>document.getElementById(id);
+
+/* ───────── 데이터 로드 (Apps Script 또는 로컬 샘플) ───────── */
+const SAMPLE=[
+  {question:"우리가 공부하는 곳",answer:"학교"},
+  {question:"빨갛고 둥근 과일",answer:"사과"},
+  {question:"친구와 뛰어노는 넓은 곳",answer:"운동장"},
+  {question:"",answer:"바나나"}
+];
+let allProblems=[];
+function onData(data){
+  allProblems=(data||[]).filter(p=>p&&String(p.answer).trim()!=="");
+  if(!allProblems.length){
+    $("loadMsg").textContent="정답이 든 칸이 없어요. 둘째 칸에 정답을 적었는지 확인해 주세요.";
+    document.querySelectorAll(".mode-card").forEach(b=>b.disabled=true);
+    return;
+  }
+  $("loadMsg").textContent=`총 ${allProblems.length}문제 준비됨 · 아래에서 버전을 고르세요`;
+  document.querySelectorAll(".mode-card").forEach(b=>b.disabled=false);
+}
+
+/* CSV 파싱 (따옴표·줄바꿈·BOM 처리) */
+function parseCSV(text){
+  text=String(text).replace(/^﻿/,"");
+  const rows=[]; let row=[],field="",inQ=false,i=0;
+  while(i<text.length){
+    const ch=text[i];
+    if(inQ){
+      if(ch==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inQ=false;i++;continue; }
+      field+=ch;i++;continue;
+    }
+    if(ch==='"'){inQ=true;i++;continue;}
+    if(ch===","){row.push(field);field="";i++;continue;}
+    if(ch==="\r"){i++;continue;}
+    if(ch==="\n"){row.push(field);rows.push(row);row=[];field="";i++;continue;}
+    field+=ch;i++;
+  }
+  if(field!==""||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.some(c=>String(c).trim()!==""));
+}
+function rowsToProblems(rows){
+  if(!rows.length)return[];
+  let start=0;
+  const f=rows[0].map(c=>String(c).trim().toLowerCase());
+  if(f.includes("정답")||f.includes("answer")||f.includes("문제")||f.includes("question")) start=1;
+  const out=[];
+  for(let r=start;r<rows.length;r++){
+    const cols=rows[r];
+    const q=(cols.length>=2?cols[0]:"").toString().trim();
+    const a=(cols.length>=2?cols[1]:cols[0]||"").toString().trim();
+    if(a!=="") out.push({question:q,answer:a});
+  }
+  return out;
+}
+function handleCSVFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{ onData(rowsToProblems(parseCSV(e.target.result))); $("loadMsg").textContent=`'${file.name}' · `+$("loadMsg").textContent; };
+  reader.onerror=()=>{ $("loadMsg").textContent="파일을 읽지 못했어요. 다시 시도해 주세요."; };
+  reader.readAsText(file,"UTF-8");
+}
+/* UI 연결 */
+$("csvBtn").onclick=()=>$("csvFile").click();
+$("csvFile").onchange=e=>handleCSVFile(e.target.files[0]);
+$("sampleBtn").onclick=()=>onData(SAMPLE);
+(function(){
+  const z=$("csvZone");
+  ["dragenter","dragover"].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add("drag");}));
+  ["dragleave","drop"].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove("drag");}));
+  z.addEventListener("drop",e=>{ const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f)handleCSVFile(f); });
+})();
+
+/* ───────── 상태 ───────── */
+const TYPES={choseong:"초성",jamo:"자모",hanbut:"한붓"};
+let MODE="choseong";
+let problems=[], idx=0, cur=null;
+let seconds=0, timer=null, mistakes=0, revealed=[], locked=false;
+let hbPath=[], hbGrid=[], hbSel=[];
+
+/* ───────── 버전 시작 ───────── */
+document.querySelectorAll(".mode-card").forEach(card=>{
+  card.addEventListener("click",()=>{ if(!card.disabled) start(card.dataset.mode); });
+});
+function start(mode){
+  MODE=mode;
+  problems=shuffle(allProblems);
+  idx=0; seconds=0;
+  $("home").classList.add("hidden");
+  $("finish").classList.add("hidden");
+  $("game").classList.remove("hidden");
+  $("timerChip").classList.remove("hide");
+  startTimer();
+  loadProblem();
+}
+
+/* ───────── 타이머 ───────── */
+function startTimer(){stopTimer();updateTimer();timer=setInterval(()=>{seconds++;updateTimer();},1000);}
+function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
+function updateTimer(){const m=String(Math.floor(seconds/60)).padStart(2,"0"),s=String(seconds%60).padStart(2,"0");$("timerChip").textContent=`${m}:${s}`;}
+
+/* ───────── 문제 로드 ───────── */
+function loadProblem(){
+  if(idx>=problems.length){finishGame();return;}
+  cur=problems[idx]; locked=false; mistakes=0;
+  $("counter").textContent=`문제 ${idx+1} / ${problems.length}`;
+  $("progressChip").textContent=`${TYPES[MODE]} · ${idx+1}/${problems.length}`;
+  const tag=$("typeTag");
+  tag.textContent=TYPES[MODE];
+  tag.className="type-tag "+(MODE==="choseong"?"cho":MODE==="jamo"?"jamo":"han");
+  $("qcard").style.display=cur.question?"":"none";
+  $("qtext").textContent=cur.question;
+  $("msg").textContent=""; $("msg").className="msg";
+  $("hintLine").textContent=""; $("hintRow").innerHTML=""; $("stage").innerHTML="";
+  if(MODE==="hanbut") setupHanbut(); else setupTyped();
+}
+
+/* ───────── 초성 / 자모 (단답형) ───────── */
+function setupTyped(){
+  $("ansRow").style.display="";
+  const ans=cur.answer;
+  revealed=[...ans].map(c=>c.trim()===""?" ":"◯");
+  $("hintLine").textContent=revealed.join(" ");
+  if(MODE==="choseong"){
+    const box=document.createElement("div"); box.className="cho-display";
+    for(const ch of ans){const span=document.createElement("span");span.className="cho-syl";span.textContent=ch.trim()===""?"·":choseongOf(ch);box.appendChild(span);}
+    $("stage").appendChild(box);
+  }else{
+    const box=document.createElement("div"); box.className="jamo-box"; box.id="jamoBox";
+    $("stage").appendChild(box); scatterJamo(box,ans);
+  }
+  const inp=$("ansInput"); inp.value=""; inp.disabled=false;
+  $("submitBtn").disabled=false;
+  inp.onkeydown=e=>{if(e.key==="Enter")checkTyped();};
+  $("submitBtn").onclick=checkTyped;
+  const hr=$("hintRow");
+  const b1=mkBtn("초성 힌트 보기",()=>{
+    for(let i=0;i<ans.length;i++) if(ans[i].trim()!=="") revealed[i]=choseongOf(ans[i]);
+    $("hintLine").textContent=revealed.join(" "); setMsg("초성을 모두 공개했어요.","no"); b1.disabled=true;
+  });
+  hr.appendChild(b1);
+  setTimeout(()=>inp.focus(),60);
+}
+function checkTyped(){
+  if(locked)return;
+  const v=$("ansInput").value.trim(); if(!v)return;
+  if(normalize(v)===normalize(cur.answer)){
+    locked=true; $("ansInput").disabled=true; $("submitBtn").disabled=true;
+    setMsg("정답입니다!","ok");
+    if(MODE==="jamo"){
+      document.querySelectorAll("#jamoBox .jamo").forEach(j=>j.classList.add("fly"));
+      const rw=document.createElement("div"); rw.className="reveal-word"; rw.textContent=cur.answer;
+      $("jamoBox").appendChild(rw); setTimeout(()=>rw.classList.add("show"),60);
+    }
+    setTimeout(nextProblem,1300);
+  }else{
+    mistakes++;
+    if(mistakes>=3){
+      const hi=mistakes-3, letters=[...cur.answer];
+      if(hi<letters.length){revealed[hi]=letters[hi];$("hintLine").textContent=revealed.join(" ");setMsg(`${hi+1}번째 글자를 공개했어요.`,"no");}
+      else setMsg("거의 다 왔어요. 다시 생각해 보세요.","no");
+    }else setMsg(`아쉬워요. 다시 시도해 보세요. (${mistakes}/3)`,"no");
+    $("ansInput").value=""; $("ansInput").focus();
+  }
+}
+function scatterJamo(box,word){
+  const jamos=shuffle(decompose(word));
+  const spans=jamos.map(j=>{const s=document.createElement("span");s.className="jamo";s.textContent=j;box.appendChild(s);return s;});
+  // offsetWidth 읽기가 레이아웃을 즉시 계산하므로 동기 배치 (rAF 불필요 → 모든 환경에서 안정)
+  const W=box.clientWidth,H=box.clientHeight,gap=12,placed=[];
+  spans.forEach((s,i)=>{
+    const w=s.offsetWidth,h=s.offsetHeight;
+    let pos=randPos(W,H,w,h,gap,placed)||gridPos(W,H,w,h,gap,placed);
+    if(!pos){const cols=Math.ceil(Math.sqrt(spans.length)),cw=W/cols;pos={x:Math.max(gap,(i%cols)*cw+cw/2-w/2),y:Math.max(gap,gap+Math.floor(i/cols)*(h+gap))};}
+    placed.push({left:pos.x,top:pos.y,right:pos.x+w,bottom:pos.y+h});
+    s.style.left=pos.x+"px"; s.style.top=pos.y+"px";
+  });
+}
+function randPos(W,H,w,h,gap,placed){const minX=gap,minY=gap,maxX=W-w-gap,maxY=H-h-gap;if(maxX<=minX||maxY<=minY)return null;for(let i=0;i<500;i++){const x=Math.random()*(maxX-minX)+minX,y=Math.random()*(maxY-minY)+minY;const r={left:x,top:y,right:x+w,bottom:y+h};if(!overlap(r,placed,gap))return{x,y};}return null;}
+function gridPos(W,H,w,h,gap,placed){for(let y=gap;y<=H-h-gap;y+=h+gap)for(let x=gap;x<=W-w-gap;x+=w+gap){const r={left:x,top:y,right:x+w,bottom:y+h};if(!overlap(r,placed,gap))return{x,y};}return null;}
+function overlap(r,placed,gap){return placed.some(o=>!(r.right+gap<o.left||r.left>o.right+gap||r.bottom+gap<o.top||r.top>o.bottom+gap));}
+
+/* ───────── 한붓 (인터랙티브) ───────── */
+const FILLERS="가나다라마바사아자차카타파하거너더러머버서어저처커터퍼허";
+function setupHanbut(){
+  $("ansRow").style.display="none";
+  const letters=[...cur.answer].filter(c=>c.trim()!=="");
+  hbPath=findPath(letters.length);
+  hbGrid=Array(25).fill("");
+  for(let i=0;i<letters.length;i++) hbGrid[hbPath[i]]=letters[i];
+  for(let i=0;i<25;i++) if(!hbGrid[i]) hbGrid[i]=FILLERS[Math.floor(Math.random()*FILLERS.length)];
+  hbSel=[]; renderGrid();
+  const b1=mkBtn("💡 첫 글자 위치",()=>{cellEls()[hbPath[0]].classList.add("first-hint");setMsg("첫 글자 위치를 표시했어요.","no");b1.disabled=true;});
+  $("hintRow").appendChild(b1);
+  setMsg("인접한 칸을 순서대로 이어 단어를 완성하세요.","no");
+}
+function renderGrid(){
+  const g=document.createElement("div"); g.className="han-grid"; g.id="hanGrid";
+  hbGrid.forEach((ch,i)=>{const c=document.createElement("div");c.className="cell";c.textContent=ch;c.onclick=()=>clickCell(i);g.appendChild(c);});
+  $("stage").innerHTML=""; $("stage").appendChild(g);
+}
+function cellEls(){return $("hanGrid").children;}
+function clickCell(i){
+  if(locked||hbSel.includes(i))return;
+  if(hbSel.length>0){const last=hbSel[hbSel.length-1],r1=Math.floor(last/5),c1=last%5,r2=Math.floor(i/5),c2=i%5;if(Math.abs(r1-r2)+Math.abs(c1-c2)!==1){hbFail();return;}}
+  hbSel.push(i); cellEls()[i].classList.add("sel");
+  const str=hbSel.map(k=>hbGrid[k]).join("");
+  const target=[...cur.answer].filter(c=>c.trim()!=="").join("");
+  if(str===target){locked=true;setMsg("정답입니다!","ok");setTimeout(nextProblem,1000);}
+  else if(!target.startsWith(str)){hbFail();}
+}
+function hbFail(){
+  mistakes++; hbSel=[]; [...cellEls()].forEach(c=>c.classList.remove("sel"));
+  if(mistakes>=3) cellEls()[hbPath[0]].classList.add("first-hint");
+  if(mistakes>=5){locked=true;hbPath.forEach(k=>cellEls()[k].classList.add("reveal"));setMsg("정답 경로를 보여드릴게요.","no");setTimeout(nextProblem,2200);}
+  else setMsg(`이어진 길이 아니에요. 다시 시도! (${mistakes}/5)`,"no");
+}
+function findPath(len){
+  if(len<1)return[0];
+  for(let attempt=0;attempt<3000;attempt++){
+    const path=[Math.floor(Math.random()*25)];
+    for(let i=1;i<len;i++){
+      const last=path[path.length-1],r=Math.floor(last/5),c=last%5,nb=[];
+      [[0,1],[0,-1],[1,0],[-1,0]].forEach(d=>{const nr=r+d[0],nc=c+d[1];if(nr>=0&&nr<5&&nc>=0&&nc<5&&!path.includes(nr*5+nc))nb.push(nr*5+nc);});
+      if(!nb.length)break; path.push(nb[Math.floor(Math.random()*nb.length)]);
+    }
+    if(path.length===len)return path;
+  }
+  const ser=[]; for(let r=0;r<5;r++){if(r%2===0)for(let c=0;c<5;c++)ser.push(r*5+c);else for(let c=4;c>=0;c--)ser.push(r*5+c);}
+  return ser.slice(0,len);
+}
+
+/* ───────── 진행 / 종료 ───────── */
+function nextProblem(){idx++;loadProblem();}
+function finishGame(){
+  stopTimer();
+  $("game").classList.add("hidden"); $("finish").classList.remove("hidden");
+  const m=String(Math.floor(seconds/60)).padStart(2,"0"),s=String(seconds%60).padStart(2,"0");
+  $("finishSub").textContent=`${TYPES[MODE]} · ${problems.length}문제 · 기록 ${m}:${s}`;
+  $("progressChip").textContent="완료";
+}
+function goHome(){stopTimer();$("game").classList.add("hidden");$("finish").classList.add("hidden");$("home").classList.remove("hidden");$("timerChip").classList.add("hide");$("progressChip").textContent="초성 · 자모 · 한붓";}
+$("homeBtn").onclick=goHome;
+$("finishHomeBtn").onclick=goHome;
+$("againBtn").onclick=()=>{$("finish").classList.add("hidden");start(MODE);};
+
+/* ───────── helper ───────── */
+function mkBtn(label,onClick){const b=document.createElement("button");b.className="btn";b.textContent=label;b.onclick=onClick;return b;}
+function setMsg(t,cls){const m=$("msg");m.textContent=t;m.className="msg "+(cls||"");}
+</script>
+</body>
+</html>
